@@ -104,6 +104,9 @@
   .choice.is-correct .num{background:var(--correct);}
   .choice.is-wrong{border-color:var(--wrong);background:#fdeef1;}
   .choice.is-wrong .num{background:var(--wrong);}
+  /* 選択中（回答確定前）のハイライト */
+  .choice.selected{border-color:var(--teal);background:#e6f7f6;}
+  .choice.selected .num{background:var(--teal);}
   .choices.answered .choice{cursor:default;}
   .choices.answered .choice:not(.is-correct):not(.is-wrong){opacity:.5;}
 
@@ -181,7 +184,7 @@
     <div class="choices" id="choices"></div>
 
     <div class="next-wrap">
-      <button class="btn" id="btn-next" disabled>次の問題へ</button>
+      <button class="btn" id="btn-action" disabled>回答する</button>
     </div>
   </section>
 
@@ -266,7 +269,8 @@ function fuguSVG(){
 let current = 0;   // 0-indexed の問題番号
 let correct = 0;   // 正解数
 let answered = 0;  // 回答済み数
-let locked = false;
+let locked = false;   // その問題を回答確定済みか
+let selected = null;  // 回答確定前に選んでいる番号（1〜4）
 
 const $ = (id) => document.getElementById(id);
 
@@ -302,6 +306,7 @@ function show(screenId){
 /* 問題を描画 */
 function renderQuestion(){
   locked = false;
+  selected = null;
   const qEl = $("question-text");
   qEl.textContent = QUESTION_TEXTS[current] || "";
   $("look-slide").style.display = (QUESTION_TEXTS[current]) ? "none" : "block";
@@ -329,31 +334,44 @@ function renderQuestion(){
     btn.type = "button";
     const label = CHOICE_TEXTS[current] && CHOICE_TEXTS[current][i] ? CHOICE_TEXTS[current][i] : "";
     btn.innerHTML = `<span class="num">${CIRCLED[i]}</span>` + (label ? `<span class="txt">${label}</span>` : `<span class="txt" style="opacity:.55;font-weight:700">${i+1}番を選ぶ</span>`);
-    btn.addEventListener("click", ()=>choose(i+1, btn));
+    btn.addEventListener("click", ()=>select(i+1, btn));
     box.appendChild(btn);
   }
 
-  $("btn-next").disabled = true;
-  $("btn-next").textContent = (current === TOTAL-1) ? "結果を見る" : "次の問題へ";
+  // 下部ボタンは「回答する」に戻し、選択があるまで押せない
+  $("btn-action").disabled = true;
+  $("btn-action").textContent = "回答する";
 }
 
-/* 回答処理 */
-function choose(picked, btnEl){
-  if(locked) return;
+/* ① 選択肢を選ぶ（まだ確定しない） */
+function select(picked, btnEl){
+  if(locked) return; // 回答確定後は変更不可
+  selected = picked;
+  // 選択中ハイライトを付け替え
+  document.querySelectorAll("#choices .choice").forEach(b=>b.classList.remove("selected"));
+  btnEl.classList.add("selected");
+  // 「回答する」ボタンを押せるように
+  $("btn-action").disabled = false;
+}
+
+/* ② 「回答する」で確定 → 正誤判定 */
+function submitAnswer(){
+  if(locked || selected === null) return;
   locked = true;
   answered++;
 
   const ans = ANSWERS[current];
-  const isCorrect = (picked === ans);
+  const isCorrect = (selected === ans);
   if(isCorrect) correct++;
 
-  // 全ボタンをロック＆色付け
+  // 全ボタンをロック＆色付け（選択中ハイライトは消す）
   const box = $("choices");
   box.classList.add("answered");
   const btns = box.querySelectorAll(".choice");
   btns.forEach((b, idx)=>{
+    b.classList.remove("selected");
     if(idx+1 === ans) b.classList.add("is-correct");
-    if(idx+1 === picked && !isCorrect) b.classList.add("is-wrong");
+    if(idx+1 === selected && !isCorrect) b.classList.add("is-wrong");
   });
 
   // スコア更新
@@ -373,17 +391,27 @@ function choose(picked, btnEl){
   $("verdict-label").textContent = isCorrect ? "フグもプクッと大満足🐡" : `正解は ${CIRCLED[ans-1]} でした`;
   $("verdict-running").innerHTML = `ここまで <b>${correct}</b> / ${answered} 問正解`;
 
-  $("btn-next").disabled = false;
+  // ボタンを「次の問題へ / 結果を見る」に切り替え（押下可能のまま）
+  $("btn-action").textContent = (current === TOTAL-1) ? "結果を見る" : "次の問題へ";
 }
 
-/* 次へ */
-function next(){
-  if($("btn-next").disabled) return;
+/* 次の問題へ or 結果へ */
+function goNext(){
   if(current < TOTAL-1){
     current++;
     renderQuestion();
   }else{
     showResult();
+  }
+}
+
+/* 下部ボタン：未回答なら確定、回答済みなら次へ */
+function onAction(){
+  if($("btn-action").disabled) return;
+  if(!locked){
+    submitAnswer();
+  }else{
+    goNext();
   }
 }
 
@@ -407,14 +435,14 @@ function showResult(){
 
 /* リセット */
 function reset(){
-  current = 0; correct = 0; answered = 0; locked = false;
+  current = 0; correct = 0; answered = 0; locked = false; selected = null;
   renderQuestion();
   show("screen-quiz");
 }
 
 /* イベント */
 $("btn-start").addEventListener("click", ()=>{ reset(); });
-$("btn-next").addEventListener("click", next);
+$("btn-action").addEventListener("click", onAction);
 $("btn-retry").addEventListener("click", ()=>{ reset(); });
 </script>
 </body>
