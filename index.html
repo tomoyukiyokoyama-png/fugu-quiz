@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>トラフグ検定</title>
+<style>
+  :root{
+    --sea-deep:#062a3a;
+    --sea:#0d4a63;
+    --sea-light:#12678a;
+    --teal:#1fa7a0;
+    --sand:#f4e5c3;
+    --fugu:#c7cdd4;
+    --fugu-dark:#8a939d;
+    --ink:#0a2230;
+    --correct:#25b07a;
+    --wrong:#e0576b;
+    --gold:#ffcf4d;
+    --white:#ffffff;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
+    color:var(--white);
+    background:linear-gradient(180deg,var(--sea-light) 0%,var(--sea) 45%,var(--sea-deep) 100%);
+    background-attachment:fixed;
+    min-height:100dvh;
+    overflow-x:hidden;
+  }
+  /* 上昇する泡 */
+  .bubbles{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0;}
+  .bubble{
+    position:absolute;bottom:-40px;border-radius:50%;
+    background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.55),rgba(255,255,255,.08));
+    animation:rise linear infinite;
+  }
+  @keyframes rise{
+    0%{transform:translateY(0) translateX(0);opacity:0;}
+    10%{opacity:.7;}
+    90%{opacity:.5;}
+    100%{transform:translateY(-105dvh) translateX(20px);opacity:0;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .bubble{animation:none;display:none;}
+  }
+
+  .app{
+    position:relative;z-index:1;
+    max-width:520px;margin:0 auto;padding:20px 18px 40px;
+    min-height:100dvh;display:flex;flex-direction:column;
+  }
+  .screen{display:none;flex:1;flex-direction:column;}
+  .screen.active{display:flex;animation:fadein .35s ease;}
+  @keyframes fadein{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+  /* ヘッダー・進捗 */
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;}
+  .qno{font-weight:800;font-size:1.05rem;letter-spacing:.02em;}
+  .score-pill{
+    background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);
+    padding:6px 12px;border-radius:999px;font-weight:700;font-size:.92rem;white-space:nowrap;
+  }
+  .score-pill b{color:var(--gold);}
+  .progress{height:8px;border-radius:999px;background:rgba(255,255,255,.16);overflow:hidden;margin-bottom:22px;}
+  .progress > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--teal),var(--gold));transition:width .4s ease;}
+
+  /* マスコット */
+  .mascot-wrap{display:flex;justify-content:center;margin:6px 0 16px;}
+  .mascot{width:150px;height:150px;transition:transform .45s cubic-bezier(.34,1.56,.64,1);filter:drop-shadow(0 8px 16px rgba(0,0,0,.3));}
+  .mascot.puff{transform:scale(1.28);}
+  .mascot.deflate{transform:scale(.82);}
+
+  h1{font-size:1.9rem;text-align:center;margin:.2em 0;letter-spacing:.04em;}
+  .subtitle{text-align:center;opacity:.85;margin:0 0 26px;font-size:.98rem;line-height:1.6;}
+
+  .question-text{
+    font-size:1.15rem;font-weight:700;line-height:1.6;text-align:center;
+    margin:0 0 20px;min-height:0;
+  }
+  .question-text:empty{display:none;}
+  .look-slide{
+    text-align:center;opacity:.8;font-size:.95rem;margin:0 0 20px;
+  }
+
+  /* 選択肢 */
+  .choices{display:flex;flex-direction:column;gap:14px;margin-top:auto;}
+  .choice{
+    display:flex;align-items:center;gap:14px;width:100%;
+    background:var(--white);color:var(--ink);
+    border:3px solid transparent;border-radius:18px;
+    padding:18px 18px;font-size:1.12rem;font-weight:700;text-align:left;
+    cursor:pointer;transition:transform .08s ease,border-color .15s ease,background .15s ease;
+    box-shadow:0 4px 0 rgba(0,0,0,.18);
+  }
+  .choice:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.18);}
+  .choice .num{
+    flex:none;width:40px;height:40px;border-radius:50%;
+    display:grid;place-items:center;font-size:1.25rem;font-weight:900;
+    background:var(--sea-light);color:#fff;
+  }
+  .choice.is-correct{border-color:var(--correct);background:#eafaf3;}
+  .choice.is-correct .num{background:var(--correct);}
+  .choice.is-wrong{border-color:var(--wrong);background:#fdeef1;}
+  .choice.is-wrong .num{background:var(--wrong);}
+  .choices.answered .choice{cursor:default;}
+  .choices.answered .choice:not(.is-correct):not(.is-wrong){opacity:.5;}
+
+  /* 判定表示 */
+  .verdict{
+    text-align:center;margin:22px 0 8px;min-height:56px;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    opacity:0;transform:scale(.8);transition:opacity .25s ease,transform .25s ease;
+  }
+  .verdict.show{opacity:1;transform:scale(1);}
+  .verdict .mark{font-size:2.4rem;font-weight:900;line-height:1;}
+  .verdict.ok .mark{color:var(--correct);}
+  .verdict.ng .mark{color:var(--wrong);}
+  .verdict .label{font-weight:800;font-size:1.1rem;}
+  .verdict .running{font-size:.95rem;opacity:.9;}
+  .verdict .running b{color:var(--gold);font-size:1.1rem;}
+
+  /* ボタン */
+  .btn{
+    display:block;width:100%;border:none;border-radius:16px;
+    padding:16px;font-size:1.15rem;font-weight:800;cursor:pointer;
+    background:linear-gradient(180deg,var(--gold),#f0b429);color:#3a2a00;
+    box-shadow:0 5px 0 #b9860f;transition:transform .08s ease,box-shadow .08s ease;
+    letter-spacing:.03em;
+  }
+  .btn:active{transform:translateY(3px);box-shadow:0 2px 0 #b9860f;}
+  .btn.secondary{background:rgba(255,255,255,.16);color:#fff;box-shadow:0 5px 0 rgba(0,0,0,.25);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:0 5px 0 #b9860f;}
+  .next-wrap{margin-top:22px;}
+
+  /* 結果 */
+  .result-score{text-align:center;font-size:1.05rem;opacity:.9;margin:10px 0 2px;}
+  .result-big{text-align:center;font-size:3.2rem;font-weight:900;margin:0;line-height:1.1;}
+  .result-big b{color:var(--gold);}
+  .result-comment{text-align:center;font-size:1.15rem;font-weight:700;line-height:1.6;margin:18px 0 26px;}
+  .rank{display:inline-block;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);
+    border-radius:999px;padding:6px 16px;margin:6px auto 0;font-weight:800;}
+  .credit{text-align:center;opacity:.55;font-size:.78rem;margin-top:26px;}
+</style>
+</head>
+<body>
+<div class="bubbles" id="bubbles" aria-hidden="true"></div>
+
+<div class="app">
+
+  <!-- スタート画面 -->
+  <section class="screen active" id="screen-start">
+    <div style="margin:auto 0;">
+      <div class="mascot-wrap"><div id="mascot-start"></div></div>
+      <h1>🐡 トラフグ検定</h1>
+      <p class="subtitle">全7問・4択クイズ。<br>スライドの問題を見て、①〜④から選ぼう！<br>1問ごとに正誤と今の正解数が出るよ。</p>
+      <button class="btn" id="btn-start">スタート</button>
+    </div>
+  </section>
+
+  <!-- 設問画面 -->
+  <section class="screen" id="screen-quiz">
+    <div class="topbar">
+      <span class="qno" id="qno">第1問 / 7</span>
+      <span class="score-pill">正解 <b id="score-now">0</b> / <span id="score-answered">0</span></span>
+    </div>
+    <div class="progress"><i id="progress-bar"></i></div>
+
+    <div class="mascot-wrap"><div id="mascot-quiz"></div></div>
+
+    <p class="question-text" id="question-text"></p>
+    <p class="look-slide" id="look-slide">👀 スライドの問題を見て回答してね</p>
+
+    <div class="verdict" id="verdict">
+      <span class="mark" id="verdict-mark"></span>
+      <span class="label" id="verdict-label"></span>
+      <span class="running" id="verdict-running"></span>
+    </div>
+
+    <div class="choices" id="choices"></div>
+
+    <div class="next-wrap">
+      <button class="btn" id="btn-next" disabled>次の問題へ</button>
+    </div>
+  </section>
+
+  <!-- 結果画面 -->
+  <section class="screen" id="screen-result">
+    <div style="margin:auto 0;">
+      <div class="mascot-wrap"><div id="mascot-result"></div></div>
+      <p class="result-score">あなたのスコア</p>
+      <p class="result-big"><b id="final-score">0</b> / 7 問正解</p>
+      <div style="text-align:center;"><span class="rank" id="rank"></span></div>
+      <p class="result-comment" id="result-comment"></p>
+      <button class="btn secondary" id="btn-retry">もう一度チャレンジ</button>
+      <p class="credit">トラフグ検定</p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* =========================================================
+   設定ブロック（ここだけ編集すればOK）
+   ========================================================= */
+
+// 第1問〜第7問の正解番号（1〜4）。
+// 第1問=④, 第2問=①, 第3問=③, 第4問=③, 第5問=①, 第6問=②, 第7問=①
+const ANSWERS = [4, 1, 3, 3, 1, 2, 1];
+
+// 任意：アプリにも問題文を表示したい場合のみ記入（既定は空＝スライド主導）。
+// 例: QUESTION_TEXTS[0] = "トラフグの毒はどこに多い？";
+const QUESTION_TEXTS = ["", "", "", "", "", "", ""];
+
+// 任意：選択肢のラベル。空なら①〜④の番号ボタンのみ表示（スライド主導）。
+// 例: CHOICE_TEXTS[0] = ["肝臓", "皮", "身", "血液"];
+const CHOICE_TEXTS = [
+  ["", "", "", ""], ["", "", "", ""], ["", "", "", ""], ["", "", "", ""],
+  ["", "", "", ""], ["", "", "", ""], ["", "", "", ""]
+];
+
+const TOTAL = ANSWERS.length; // = 7
+const CIRCLED = ["①", "②", "③", "④"];
+
+/* =========================================================
+   トラフグSVGマスコット
+   ========================================================= */
+function fuguSVG(){
+  return `
+  <svg class="mascot" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="トラフグ">
+    <ellipse cx="100" cy="170" rx="55" ry="10" fill="rgba(0,0,0,.18)"/>
+    <!-- 尾びれ -->
+    <path d="M158 100 q34 -22 34 0 q0 22 -34 0 Z" fill="#e9b96b"/>
+    <!-- 体 -->
+    <ellipse cx="95" cy="105" rx="78" ry="66" fill="#d7dde3"/>
+    <path d="M17 105 a78 66 0 0 1 156 0 Z" fill="#c2c9d1"/>
+    <!-- 背中の斑点 -->
+    <circle cx="70" cy="70" r="9" fill="#20313d"/>
+    <circle cx="105" cy="60" r="7" fill="#20313d"/>
+    <circle cx="132" cy="78" r="8" fill="#20313d"/>
+    <circle cx="60" cy="98" r="6" fill="#20313d"/>
+    <circle cx="120" cy="102" r="6" fill="#20313d"/>
+    <!-- 胸びれ -->
+    <path d="M40 120 q-24 6 -8 26 q18 6 20 -14 Z" fill="#e9b96b"/>
+    <!-- お腹 -->
+    <ellipse cx="88" cy="130" rx="52" ry="34" fill="#fbfdff"/>
+    <!-- ほっぺ -->
+    <circle cx="60" cy="118" r="9" fill="#ffb3ba" opacity=".7"/>
+    <circle cx="118" cy="118" r="9" fill="#ffb3ba" opacity=".7"/>
+    <!-- 目 -->
+    <circle cx="72" cy="96" r="15" fill="#fff"/>
+    <circle cx="112" cy="96" r="15" fill="#fff"/>
+    <circle cx="75" cy="98" r="7.5" fill="#122029"/>
+    <circle cx="115" cy="98" r="7.5" fill="#122029"/>
+    <circle cx="78" cy="95" r="2.5" fill="#fff"/>
+    <circle cx="118" cy="95" r="2.5" fill="#fff"/>
+    <!-- 口 -->
+    <path d="M84 124 q8 10 16 0" fill="none" stroke="#c2662d" stroke-width="4" stroke-linecap="round"/>
+  </svg>`;
+}
+
+/* =========================================================
+   状態
+   ========================================================= */
+let current = 0;   // 0-indexed の問題番号
+let correct = 0;   // 正解数
+let answered = 0;  // 回答済み数
+let locked = false;
+
+const $ = (id) => document.getElementById(id);
+
+/* 泡を生成 */
+(function makeBubbles(){
+  const wrap = $("bubbles");
+  const N = 14;
+  for(let i=0;i<N;i++){
+    const b = document.createElement("span");
+    b.className = "bubble";
+    const size = 6 + (i*37 % 22);
+    b.style.width = size+"px";
+    b.style.height = size+"px";
+    b.style.left = ((i*67) % 100) + "%";
+    b.style.animationDuration = (7 + (i*29 % 9)) + "s";
+    b.style.animationDelay = (-(i*13 % 12)) + "s";
+    wrap.appendChild(b);
+  }
+})();
+
+/* マスコットを各画面へ */
+$("mascot-start").innerHTML = fuguSVG();
+$("mascot-quiz").innerHTML = fuguSVG();
+$("mascot-result").innerHTML = fuguSVG();
+
+/* 画面切り替え */
+function show(screenId){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  $(screenId).classList.add("active");
+  window.scrollTo(0,0);
+}
+
+/* 問題を描画 */
+function renderQuestion(){
+  locked = false;
+  const qEl = $("question-text");
+  qEl.textContent = QUESTION_TEXTS[current] || "";
+  $("look-slide").style.display = (QUESTION_TEXTS[current]) ? "none" : "block";
+
+  $("qno").textContent = `第${current+1}問 / ${TOTAL}`;
+  $("progress-bar").style.width = (current/TOTAL*100) + "%";
+  $("score-now").textContent = correct;
+  $("score-answered").textContent = answered;
+
+  // マスコットを通常サイズへ戻す
+  const m = $("mascot-quiz").querySelector(".mascot");
+  m.classList.remove("puff","deflate");
+
+  // 判定非表示
+  const v = $("verdict");
+  v.classList.remove("show","ok","ng");
+
+  // 選択肢生成
+  const box = $("choices");
+  box.className = "choices";
+  box.innerHTML = "";
+  for(let i=0;i<4;i++){
+    const btn = document.createElement("button");
+    btn.className = "choice";
+    btn.type = "button";
+    const label = CHOICE_TEXTS[current] && CHOICE_TEXTS[current][i] ? CHOICE_TEXTS[current][i] : "";
+    btn.innerHTML = `<span class="num">${CIRCLED[i]}</span>` + (label ? `<span class="txt">${label}</span>` : `<span class="txt" style="opacity:.55;font-weight:700">${i+1}番を選ぶ</span>`);
+    btn.addEventListener("click", ()=>choose(i+1, btn));
+    box.appendChild(btn);
+  }
+
+  $("btn-next").disabled = true;
+  $("btn-next").textContent = (current === TOTAL-1) ? "結果を見る" : "次の問題へ";
+}
+
+/* 回答処理 */
+function choose(picked, btnEl){
+  if(locked) return;
+  locked = true;
+  answered++;
+
+  const ans = ANSWERS[current];
+  const isCorrect = (picked === ans);
+  if(isCorrect) correct++;
+
+  // 全ボタンをロック＆色付け
+  const box = $("choices");
+  box.classList.add("answered");
+  const btns = box.querySelectorAll(".choice");
+  btns.forEach((b, idx)=>{
+    if(idx+1 === ans) b.classList.add("is-correct");
+    if(idx+1 === picked && !isCorrect) b.classList.add("is-wrong");
+  });
+
+  // スコア更新
+  $("score-now").textContent = correct;
+  $("score-answered").textContent = answered;
+
+  // マスコット演出
+  const m = $("mascot-quiz").querySelector(".mascot");
+  m.classList.remove("puff","deflate");
+  void m.offsetWidth; // reflow
+  m.classList.add(isCorrect ? "puff" : "deflate");
+
+  // 判定表示
+  const v = $("verdict");
+  v.classList.add("show", isCorrect ? "ok" : "ng");
+  $("verdict-mark").textContent = isCorrect ? "◯ 正解！" : "✕ 不正解…";
+  $("verdict-label").textContent = isCorrect ? "フグもプクッと大満足🐡" : `正解は ${CIRCLED[ans-1]} でした`;
+  $("verdict-running").innerHTML = `ここまで <b>${correct}</b> / ${answered} 問正解`;
+
+  $("btn-next").disabled = false;
+}
+
+/* 次へ */
+function next(){
+  if($("btn-next").disabled) return;
+  if(current < TOTAL-1){
+    current++;
+    renderQuestion();
+  }else{
+    showResult();
+  }
+}
+
+/* 結果 */
+function showResult(){
+  $("final-score").textContent = correct;
+  const ratio = correct/TOTAL;
+  let rank, comment;
+  if(correct === TOTAL){ rank="🏆 トラフグ免許皆伝"; comment="全問正解！あなたはもうトラフグマスター。天然もの級の知識です🐡✨"; }
+  else if(ratio >= 0.7){ rank="🥈 フグ通"; comment="お見事！かなりのトラフグ通ですね。あと少しで免許皆伝！"; }
+  else if(ratio >= 0.4){ rank="🥉 見習い"; comment="なかなかの善戦！もう一度チャレンジしてトラフグ博士を目指そう。"; }
+  else{ rank="🐟 これから"; comment="ここからが伸びしろ！トラフグの世界、もっと知ると面白いよ。"; }
+  $("rank").textContent = rank;
+  $("result-comment").textContent = comment;
+
+  const m = $("mascot-result").querySelector(".mascot");
+  m.classList.remove("deflate");
+  if(correct === TOTAL) m.classList.add("puff");
+  show("screen-result");
+}
+
+/* リセット */
+function reset(){
+  current = 0; correct = 0; answered = 0; locked = false;
+  renderQuestion();
+  show("screen-quiz");
+}
+
+/* イベント */
+$("btn-start").addEventListener("click", ()=>{ reset(); });
+$("btn-next").addEventListener("click", next);
+$("btn-retry").addEventListener("click", ()=>{ reset(); });
+</script>
+</body>
+</html>
