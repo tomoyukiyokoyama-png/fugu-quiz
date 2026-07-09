@@ -196,7 +196,6 @@
       <p class="result-big"><b id="final-score">0</b> / 7 問正解</p>
       <div style="text-align:center;"><span class="rank" id="rank"></span></div>
       <p class="result-comment" id="result-comment"></p>
-      <button class="btn secondary" id="btn-retry">もう一度チャレンジ</button>
       <p class="credit">トラフグ検定</p>
     </div>
   </section>
@@ -229,37 +228,85 @@ const CIRCLED = ["①", "②", "③", "④"];
 /* =========================================================
    トラフグSVGマスコット
    ========================================================= */
-function fuguSVG(){
+function fuguSVG(uid){
+  uid = uid || "0"; // 同一IDの重複を避けるためインスタンスごとに一意化
   return `
-  <svg class="mascot" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="トラフグ">
-    <ellipse cx="100" cy="170" rx="55" ry="10" fill="rgba(0,0,0,.18)"/>
-    <!-- 尾びれ -->
-    <path d="M158 100 q34 -22 34 0 q0 22 -34 0 Z" fill="#e9b96b"/>
-    <!-- 体 -->
-    <ellipse cx="95" cy="105" rx="78" ry="66" fill="#d7dde3"/>
-    <path d="M17 105 a78 66 0 0 1 156 0 Z" fill="#c2c9d1"/>
-    <!-- 背中の斑点 -->
-    <circle cx="70" cy="70" r="9" fill="#20313d"/>
-    <circle cx="105" cy="60" r="7" fill="#20313d"/>
-    <circle cx="132" cy="78" r="8" fill="#20313d"/>
-    <circle cx="60" cy="98" r="6" fill="#20313d"/>
-    <circle cx="120" cy="102" r="6" fill="#20313d"/>
-    <!-- 胸びれ -->
-    <path d="M40 120 q-24 6 -8 26 q18 6 20 -14 Z" fill="#e9b96b"/>
-    <!-- お腹 -->
-    <ellipse cx="88" cy="130" rx="52" ry="34" fill="#fbfdff"/>
-    <!-- ほっぺ -->
-    <circle cx="60" cy="118" r="9" fill="#ffb3ba" opacity=".7"/>
-    <circle cx="118" cy="118" r="9" fill="#ffb3ba" opacity=".7"/>
-    <!-- 目 -->
-    <circle cx="72" cy="96" r="15" fill="#fff"/>
-    <circle cx="112" cy="96" r="15" fill="#fff"/>
-    <circle cx="75" cy="98" r="7.5" fill="#122029"/>
-    <circle cx="115" cy="98" r="7.5" fill="#122029"/>
-    <circle cx="78" cy="95" r="2.5" fill="#fff"/>
-    <circle cx="118" cy="95" r="2.5" fill="#fff"/>
-    <!-- 口 -->
-    <path d="M84 124 q8 10 16 0" fill="none" stroke="#c2662d" stroke-width="4" stroke-linecap="round"/>
+  <svg class="mascot" viewBox="0 0 400 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="トラフグ">
+    <defs>
+      <linearGradient id="backGrad-${uid}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#9a9a9a"/>
+        <stop offset="100%" stop-color="#6e6e6e"/>
+      </linearGradient>
+    </defs>
+
+    <!-- tail fin -->
+    <path d="M300 140 Q360 105 358 140 Q360 175 300 152 Z" fill="#f2f2f2" stroke="#4a4a4a" stroke-width="2.5"/>
+    <path d="M312 132 Q340 128 352 122" fill="none" stroke="#b8b8b8" stroke-width="1.5"/>
+    <path d="M312 148 Q340 152 352 158" fill="none" stroke="#b8b8b8" stroke-width="1.5"/>
+
+    <!-- top dorsal fin -->
+    <path d="M215 78 Q255 58 270 88 Q245 90 220 98 Z" fill="#f2f2f2" stroke="#4a4a4a" stroke-width="2.5"/>
+
+    <!-- body base (white belly) -->
+    <path d="M60 140
+             Q60 78 150 72
+             Q250 66 305 118
+             Q320 140 305 162
+             Q250 214 150 208
+             Q60 202 60 140 Z"
+          fill="#fafafa" stroke="#4a4a4a" stroke-width="3"/>
+
+    <!-- upper grey region with spots -->
+    <clipPath id="bodyClip-${uid}">
+      <path d="M60 140
+               Q60 78 150 72
+               Q250 66 305 118
+               Q320 140 305 162
+               Q250 214 150 208
+               Q60 202 60 140 Z"/>
+    </clipPath>
+    <g clip-path="url(#bodyClip-${uid})">
+      <path d="M40 140 Q60 78 150 72 Q250 66 310 118 Q320 130 320 140 Z" fill="url(#backGrad-${uid})"/>
+      <!-- spots -->
+      <g fill="#2b2b2b">
+        <circle cx="110" cy="95" r="6"/>
+        <circle cx="140" cy="88" r="6.5"/>
+        <circle cx="172" cy="86" r="6"/>
+        <circle cx="205" cy="88" r="6.5"/>
+        <circle cx="238" cy="94" r="6"/>
+        <circle cx="268" cy="104" r="5.5"/>
+        <circle cx="125" cy="118" r="6.5"/>
+        <circle cx="158" cy="112" r="6"/>
+        <circle cx="190" cy="110" r="6.5"/>
+        <circle cx="222" cy="114" r="6"/>
+        <circle cx="253" cy="122" r="5.5"/>
+        <circle cx="283" cy="128" r="5"/>
+        <circle cx="112" cy="140" r="6"/>
+        <circle cx="145" cy="136" r="6"/>
+        <circle cx="178" cy="134" r="6"/>
+        <circle cx="210" cy="136" r="6"/>
+        <circle cx="242" cy="140" r="5.5"/>
+        <circle cx="270" cy="146" r="5"/>
+        <circle cx="160" cy="158" r="5.5"/>
+        <circle cx="195" cy="158" r="5.5"/>
+        <circle cx="225" cy="160" r="5"/>
+      </g>
+      <!-- signature large black blotch behind pectoral fin (white-ringed) -->
+      <circle cx="188" cy="150" r="30" fill="#fafafa"/>
+      <circle cx="188" cy="150" r="24" fill="#1a1a1a"/>
+    </g>
+
+    <!-- side pectoral fin -->
+    <path d="M150 150 Q135 178 165 180 Q180 168 178 152 Z" fill="#f2f2f2" stroke="#4a4a4a" stroke-width="2.5"/>
+
+    <!-- eye -->
+    <circle cx="100" cy="128" r="20" fill="#ffffff" stroke="#4a4a4a" stroke-width="2.5"/>
+    <circle cx="102" cy="130" r="11" fill="#2b2b2b"/>
+    <circle cx="106" cy="125" r="4" fill="#ffffff"/>
+    <circle cx="98" cy="134" r="2" fill="#ffffff" opacity="0.8"/>
+
+    <!-- mouth -->
+    <path d="M62 150 Q54 156 64 160" fill="none" stroke="#4a4a4a" stroke-width="2.5" stroke-linecap="round"/>
   </svg>`;
 }
 
@@ -292,9 +339,9 @@ const $ = (id) => document.getElementById(id);
 })();
 
 /* マスコットを各画面へ */
-$("mascot-start").innerHTML = fuguSVG();
-$("mascot-quiz").innerHTML = fuguSVG();
-$("mascot-result").innerHTML = fuguSVG();
+$("mascot-start").innerHTML = fuguSVG("start");
+$("mascot-quiz").innerHTML = fuguSVG("quiz");
+$("mascot-result").innerHTML = fuguSVG("result");
 
 /* 画面切り替え */
 function show(screenId){
@@ -443,7 +490,6 @@ function reset(){
 /* イベント */
 $("btn-start").addEventListener("click", ()=>{ reset(); });
 $("btn-action").addEventListener("click", onAction);
-$("btn-retry").addEventListener("click", ()=>{ reset(); });
 </script>
 </body>
 </html>
